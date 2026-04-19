@@ -1,0 +1,24 @@
+name = "dbc-line-oa"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace for LINE event dedup (5 min TTL) + verification session state (10 min TTL)
+# Create with: wrangler kv:namespace create LINE_OA_KV
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "LINE_OA_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (set via `wrangler secret put <NAME>` — never committed):
+#   LINE_CHANNEL_SECRET        — for x-line-signature HMAC verify
+#   LINE_CHANNEL_ACCESS_TOKEN  — for calling LINE Messaging API
+#   LINE_OA_API_KEY            — shared secret for PHP API auth (X-Line-Oa-Key header)
+#   TELEGRAM_BOT_TOKEN         — for follow/unfollow notifications
+#   TELEGRAM_CHAT_ID           — for follow/unfollow notifications
+
+# Non-secret env vars (can go here):
+[vars]
+PHP_API_BASE_URL = "https://REPLACE-WITH-HOSTINGER-DOMAIN/api/line-oa"
+IMAGE_BASE_URL = "https://REPLACE-WITH-HOSTINGER-DOMAIN/line-oa/images"
+CLINIC_PHONE = "+66956236663"
