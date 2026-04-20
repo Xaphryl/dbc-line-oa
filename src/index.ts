@@ -7,7 +7,14 @@
 
 import { verifyLineSignature } from './line/signature';
 import { claimEvent } from './dedup';
-import type { Env, LineWebhookBody } from './types';
+import type { Env, LineWebhookBody, LineMessageEvent } from './types';
+import { handleNextAppointment } from './handlers/nextAppointment';
+import { handleVerify } from './handlers/verify';
+import { handleUserKeyword } from './handlers/userKeyword';
+import { handleFollow } from './handlers/follow';
+import { handleUnfollow } from './handlers/unfollow';
+import { getSession } from './session';
+import { TRIGGER_NEXT_APPOINTMENT, USER_KEYWORD_REGEX } from './constants';
 
 export default {
   async fetch(
@@ -34,7 +41,7 @@ export default {
 async function handleWebhook(
   request: Request,
   env: Env,
-  _ctx: ExecutionContext,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   // Read raw body as text — the signature is over exact bytes.
   const rawBody = await request.text();
@@ -53,17 +60,66 @@ async function handleWebhook(
     return new Response('bad request', { status: 400 });
   }
 
-  // Dedup + dispatch — Phase 2: just log, no business logic.
+  // Forward raw body to fd-th.com (fire-and-forget, non-blocking)
+  if (env.FORWARD_WEBHOOK_URL) {
+    ctx.waitUntil(
+      fetch(env.FORWARD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawBody,
+      }).catch((err: unknown) => console.log('[forward] error:', err instanceof Error ? err.message : 'unknown')),
+    );
+  }
+
+  // Dedup + dispatch
   for (const event of body.events ?? []) {
     const fresh = await claimEvent(env.LINE_OA_KV, event);
     if (!fresh) {
       console.log('[webhook] duplicate event skipped');
       continue;
     }
-    console.log(
-      `[webhook] event type=${event.type} source=${event.source?.userId ?? 'n/a'}`,
-    );
-    // Phase 4 will add handlers here.
+
+    // Follow / Unfollow
+    if (event.type === 'follow') {
+      await handleFollow(event, env);
+      continue;
+    }
+    if (event.type === 'unfollow') {
+      await handleUnfollow(event, env);
+      continue;
+    }
+
+    // Only handle text message events
+    if (event.type !== 'message' || !event.message || event.message.type !== 'text') {
+      continue;
+    }
+
+    const msgEvent = event as LineMessageEvent;
+    const userId = msgEvent.source?.userId;
+    if (!userId) continue;
+
+    const text = msgEvent.message.text.trim();
+
+    // 1. "user"/"User" keyword — highest priority, clears state
+    if (USER_KEYWORD_REGEX.test(text)) {
+      await handleUserKeyword(msgEvent, env);
+      continue;
+    }
+
+    // 2. Active verification session
+    const session = await getSession(env.LINE_OA_KV, userId);
+    if (session) {
+      await handleVerify(msgEvent, env, session, text);
+      continue;
+    }
+
+    // 3. Appointment trigger
+    if (text === TRIGGER_NEXT_APPOINTMENT) {
+      await handleNextAppointment(msgEvent, env);
+      continue;
+    }
+
+    // 4. All other text — ignore silently
   }
 
   return new Response('ok', { status: 200 });

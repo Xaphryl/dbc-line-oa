@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 # Then paste the returned id below.
 [[kv_namespaces]]
 binding = "LINE_OA_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "0b85d72e3c4743618533625054d792a2"
 
 # Secrets (set via `wrangler secret put <NAME>` — never committed):
 #   LINE_CHANNEL_SECRET        — for x-line-signature HMAC verify
@@ -19,6 +19,7 @@ id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 # Non-secret env vars (can go here):
 [vars]
-PHP_API_BASE_URL = "https://REPLACE-WITH-HOSTINGER-DOMAIN/api/line-oa"
-IMAGE_BASE_URL = "https://REPLACE-WITH-HOSTINGER-DOMAIN/line-oa/images"
+PHP_API_BASE_URL = "https://dentalbuddyclinic.com/line-oa/api"
+IMAGE_BASE_URL = "https://dentalbuddyclinic.com/line-oa/images"
 CLINIC_PHONE = "+66956236663"
+FORWARD_WEBHOOK_URL = "https://app.fd-th.com/api/v1/index.php/line.iInsert_line_message"
