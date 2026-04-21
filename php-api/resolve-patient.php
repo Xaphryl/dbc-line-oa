@@ -32,7 +32,11 @@ try {
         jsonResponse(['error' => 'Not Found', 'message' => 'No patient bound to this LINE user'], 404);
     }
 
-    jsonResponse(['patNum' => (int) $row['PatNum']]);
+    jsonResponse([
+        'patNum' => (int) $row['PatNum'],
+        'fname'  => (string) ($row['FName'] ?? ''),
+        'lname'  => (string) ($row['LName'] ?? ''),
+    ]);
 
 } catch (Throwable $e) {
     error_log("line-oa/resolve-patient error: " . $e->getMessage());

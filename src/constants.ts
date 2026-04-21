@@ -79,3 +79,8 @@ export const STRINGS = {
   // ── Generic error ─────────────────────────────────────────────────────────
   GENERIC_ERROR: 'ระบบขัดข้อง กรุณาลองใหม่ภายหลัง\nหรือติดต่อคลินิก',
 } as const;
+
+/** Dynamic string — requires patient name from DB, so defined as a function. */
+export function alreadyRegisteredMsg(fname: string, lname: string): string {
+  return `คุณ ${fname} ${lname} ได้ทำการลงทะเบียนเรียบร้อยแล้ว`;
+}

@@ -188,7 +188,7 @@ export async function handleVerify(
         if (!Array.isArray(days) || days.length === 0) {
           await replyToLine(
             event.replyToken,
-            [bindSuccessCard, buildEmptyStateFlex(defaultImageUrl, env.CLINIC_PHONE)],
+            [bindSuccessCard, buildEmptyStateFlex(ri.no_apt, env.CLINIC_PHONE)],
             env,
           );
         } else {

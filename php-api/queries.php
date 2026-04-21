@@ -48,7 +48,7 @@ define('PATIENT_NATIONAL_ID_COLUMN', 'CitizenID');
 function sql_resolve_patient(string $lineUserId): array
 {
     $sql = "
-        SELECT PatNum
+        SELECT PatNum, FName, LName
         FROM patient
         WHERE line_user_id = :line_user_id
           AND line_user_id != ''

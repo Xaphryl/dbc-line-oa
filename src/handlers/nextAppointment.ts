@@ -48,7 +48,7 @@ export async function handleNextAppointment(
     return;
   }
 
-  // Bound user — fetch appointments
+  // Bound user — fetch appointments and resolve images in parallel
   let days: NextAppointmentsResponse['days'];
   try {
     console.log(`[nextAppointment] phpGet /next-appointments.php?patNum=${patNum}`);
@@ -64,10 +64,9 @@ export async function handleNextAppointment(
     return;
   }
 
-  const defaultImageUrl = `${env.IMAGE_BASE_URL}/default.jpg`;
-
   if (!Array.isArray(days) || days.length === 0) {
-    await replyToLine(event.replyToken, [buildEmptyStateFlex(defaultImageUrl, env.CLINIC_PHONE)], env);
+    const ri = await resolveRegImages(env);
+    await replyToLine(event.replyToken, [buildEmptyStateFlex(ri.no_apt, env.CLINIC_PHONE)], env);
     return;
   }
 

@@ -14,11 +14,11 @@
 
 import type { Env, RegImages, RegImagesResponse } from './types';
 
-const CACHE_KEY = 'reg-images:v1';
+const CACHE_KEY = 'reg-images:v2'; // bump when RegImages shape changes
 const CACHE_TTL_SEC = 86400; // 24 hours
 const FETCH_TIMEOUT_MS = 1500;
 
-const EMPTY: RegImages = { s1: '', s2: '', s3: '' };
+const EMPTY: RegImages = { s1: '', s2: '', s3: '', no_apt: '' };
 
 export async function resolveRegImages(env: Env): Promise<RegImages> {
   // 1. Check KV cache
@@ -27,7 +27,7 @@ export async function resolveRegImages(env: Env): Promise<RegImages> {
     if (cached) {
       const ri = JSON.parse(cached) as RegImages;
       // Validate shape
-      if (ri.s1 !== undefined && ri.s2 !== undefined && ri.s3 !== undefined) {
+      if (ri.s1 !== undefined && ri.s2 !== undefined && ri.s3 !== undefined && ri.no_apt !== undefined) {
         console.log('[regImages] cache hit s1=' + ri.s1);
         return ri;
       }
@@ -49,7 +49,7 @@ export async function resolveRegImages(env: Env): Promise<RegImages> {
       return EMPTY;
     }
     const data = await res.json() as RegImagesResponse;
-    const ri: RegImages = { s1: data.s1_url, s2: data.s2_url, s3: data.s3_url };
+    const ri: RegImages = { s1: data.s1_url, s2: data.s2_url, s3: data.s3_url, no_apt: data.no_apt_url };
 
     // 3. Persist to KV cache (24h)
     await env.LINE_OA_KV.put(CACHE_KEY, JSON.stringify(ri), { expirationTtl: CACHE_TTL_SEC });

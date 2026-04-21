@@ -173,6 +173,8 @@ export interface LineMessageEvent extends LineWebhookEvent {
 
 export interface ResolvePatientResponse {
   patNum: number;
+  fname: string;
+  lname: string;
 }
 
 export interface NextAppointmentsResponse {
@@ -201,6 +203,8 @@ export interface RegImages {
   s1: string;
   s2: string;
   s3: string;
+  /** Hero image for the "no upcoming appointments" empty-state card. */
+  no_apt: string;
 }
 
 export type SessionState =
@@ -214,4 +218,5 @@ export interface RegImagesResponse {
   s1_url: string;
   s2_url: string;
   s3_url: string;
+  no_apt_url: string;
 }
