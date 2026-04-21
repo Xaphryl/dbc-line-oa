@@ -44,15 +44,15 @@ try {
     // 3. Cap at 12 bubbles (LINE carousel limit); within each day cap at 3 rows
     //    with a "+N เพิ่มเติม — ติดต่อคลินิก" hint (FR-5, FR-6)
     // -----------------------------------------------------------------------
-    $MAX_DAYS        = 12;
-    $MAX_PER_DAY     = 3;
-    $days            = [];
-    $allProcDescs    = []; // collect all proc descriptions for image rule resolution
+    $MAX_DAYS    = 12;
+    $MAX_PER_DAY = 3;
+    $days        = [];
+    $today       = date('md'); // 'MMDD' — computed once, reused per day
 
     foreach (array_slice($byDate, 0, $MAX_DAYS, true) as $date => $apts) {
-        $total     = count($apts);
-        $visible   = array_slice($apts, 0, $MAX_PER_DAY);
-        $overflow  = $total - count($visible);
+        $total   = count($apts);
+        $visible = array_slice($apts, 0, $MAX_PER_DAY);
+        $overflow = $total - count($visible);
 
         $appointments = [];
         foreach ($visible as $apt) {
@@ -61,8 +61,8 @@ try {
                 'aptNum'       => (int) $apt['AptNum'],
                 'time'         => $time,
                 'procDescript' => $apt['ProcDescript'],
+                'note'         => $apt['Note'] ?? '',
             ];
-            $allProcDescs[] = $apt['ProcDescript'];
         }
 
         if ($overflow > 0) {
@@ -74,23 +74,23 @@ try {
             ];
         }
 
+        // -----------------------------------------------------------------------
+        // Resolve hero image PER DAY (FR-14).
+        // Collect ProcDescript from ALL appointments on this day (incl. overflow)
+        // so treatment rules fire even when the matching appointment is past the
+        // 3-row visible cap (e.g. implant on a busy day still gets implant.jpg).
+        // -----------------------------------------------------------------------
+        $dayProcDescs = array_column($apts, 'ProcDescript');
+        $filename     = resolveImageRule($pdo, $dayProcDescs, $today);
+
         $days[] = [
             'date'         => $date,
             'appointments' => $appointments,
+            'image_url'    => IMAGE_BASE_URL . '/' . $filename,
         ];
     }
 
-    // -----------------------------------------------------------------------
-    // 4. Resolve hero image (Plan §5.4 / FR-14); filename only → compose URL
-    // -----------------------------------------------------------------------
-    $today    = date('md');      // 'MMDD'
-    $filename = resolveImageRule($pdo, $allProcDescs, $today);
-    $imageUrl = IMAGE_BASE_URL . '/' . $filename;
-
-    jsonResponse([
-        'days'      => $days,
-        'image_url' => $imageUrl,
-    ]);
+    jsonResponse(['days' => $days]);
 
 } catch (Throwable $e) {
     error_log("line-oa/next-appointments error: " . $e->getMessage());

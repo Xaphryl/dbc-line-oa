@@ -1,26 +1,42 @@
 /**
  * Verification state machine handler.
  * Steps: awaiting_phone → awaiting_national_id → awaiting_name_confirm → bound
+ *
+ * Keywords handled here (inside active session):
+ *   ย้อนกลับ — resets from S2 back to S1 (re-enter phone)
+ *
+ * Keywords handled before reaching this handler (index.ts):
+ *   ยกเลิก    — cancel at any step
+ *   ลงทะเบียน — restart from S1 (unbind + re-register)
+ *   id        — get raw LINE user ID
+ *
+ * Hero image URLs are stored in the session (ri field) so every step uses
+ * the correct image without an extra network call.
  */
 
 import type {
   LineMessageEvent,
   Env,
   SessionState,
+  RegImages,
   ResolveByPhoneResponse,
   VerifyAndBindResponse,
   NextAppointmentsResponse,
 } from '../types';
 import { phpPost, phpGet, PhpApiError } from '../api/php';
+import { resolveRegImages } from '../regImages';
 import { replyToLine, textMessage } from '../line/reply';
 import { setSession, clearSession } from '../session';
+import { buildVerifyPromptFlex } from '../flex/verifyPrompt';
 import { buildAskNationalIDFlex } from '../flex/askNationalId';
 import { buildConfirmNameFlex } from '../flex/confirmName';
 import { buildBindSuccessFlex } from '../flex/bindSuccess';
 import { buildNextAppointmentFlex } from '../flex/nextAppointment';
 import { buildEmptyStateFlex } from '../flex/emptyState';
-import { normalizePhone } from '../phoneNormalize';
-import { STRINGS } from '../constants';
+import { normalizePhone, maskNationalId } from '../phoneNormalize';
+import { formatThaiPhone } from '../phoneFormat';
+import { STRINGS, BACK_KEYWORD } from '../constants';
+
 
 export async function handleVerify(
   event: LineMessageEvent,
@@ -32,7 +48,10 @@ export async function handleVerify(
   if (!userId) return;
 
   const kv = env.LINE_OA_KV;
-  const defaultImageUrl = `${env.IMAGE_BASE_URL}/default.jpg`;
+
+  // Pull resolved image URLs from session; ri is always present on all session variants
+  const ri: RegImages = session.ri;
+  const defaultImageUrl = `${env.IMAGE_BASE_URL.replace(/\/$/, '')}/default.jpg`;
 
   // ── awaiting_phone ────────────────────────────────────────────────────────
   if (session.step === 'awaiting_phone') {
@@ -59,14 +78,36 @@ export async function handleVerify(
       return;
     }
 
-    await setSession(kv, userId, { step: 'awaiting_national_id', candidates });
-    await replyToLine(event.replyToken, [buildAskNationalIDFlex(defaultImageUrl, env.CLINIC_PHONE)], env);
+    // Lazily resolve step images now (2s cap — fails gracefully to empty strings)
+    const resolvedRi = await resolveRegImages(env);
+
+    const formattedPhone = formatThaiPhone(digits);
+    await setSession(kv, userId, { step: 'awaiting_national_id', candidates, phone: digits, ri: resolvedRi });
+    await replyToLine(
+      event.replyToken,
+      [buildAskNationalIDFlex(formattedPhone, resolvedRi.s2, env.CLINIC_PHONE)],
+      env,
+    );
     return;
   }
 
   // ── awaiting_national_id ──────────────────────────────────────────────────
   if (session.step === 'awaiting_national_id') {
-    if (!/^\d{13}$/.test(text)) {
+    // ย้อนกลับ — reset to S1
+    if (text === BACK_KEYWORD) {
+      await setSession(kv, userId, { step: 'awaiting_phone', ri });
+      await replyToLine(
+        event.replyToken,
+        [buildVerifyPromptFlex(ri.s1, env.CLINIC_PHONE)],
+        env,
+      );
+      console.log('[verify] ย้อนกลับ → S1');
+      return;
+    }
+
+    // Normalise: strip spaces / dashes before the 13-digit check
+    const rawId = normalizePhone(text); // re-uses the digit-stripper
+    if (!/^\d{13}$/.test(rawId)) {
       await replyToLine(event.replyToken, [textMessage(STRINGS.NATIONAL_ID_MISMATCH)], env);
       return;
     }
@@ -77,7 +118,7 @@ export async function handleVerify(
     try {
       const res = await phpPost<VerifyAndBindResponse>(
         '/verify-and-bind.php',
-        { line_user_id: userId, candidates: session.candidates, national_id: text },
+        { line_user_id: userId, candidates: session.candidates, national_id: rawId },
         env,
       );
       patNum = res.patNum;
@@ -92,10 +133,20 @@ export async function handleVerify(
       return;
     }
 
-    await setSession(kv, userId, { step: 'awaiting_name_confirm', patNum, fname, lname });
+    const formattedPhone = formatThaiPhone(session.phone);
+    const maskedId = maskNationalId(rawId);
+    await setSession(kv, userId, {
+      step: 'awaiting_name_confirm',
+      patNum,
+      fname,
+      lname,
+      phone: session.phone,
+      nationalId: rawId,
+      ri,
+    });
     await replyToLine(
       event.replyToken,
-      [buildConfirmNameFlex(fname, lname, defaultImageUrl, env.CLINIC_PHONE)],
+      [buildConfirmNameFlex(fname, lname, formattedPhone, maskedId, ri.s3, env.CLINIC_PHONE)],
       env,
     );
     return;
@@ -103,8 +154,11 @@ export async function handleVerify(
 
   // ── awaiting_name_confirm ─────────────────────────────────────────────────
   if (session.step === 'awaiting_name_confirm') {
+    const formattedPhone = formatThaiPhone(session.phone);
+    const maskedId = maskNationalId(session.nationalId);
+
     if (/^(ใช่|yes)/i.test(text)) {
-      // User confirmed — call confirm-bind
+      // Patient confirmed — call confirm-bind
       try {
         await phpPost(
           '/confirm-bind.php',
@@ -130,8 +184,8 @@ export async function handleVerify(
           `/next-appointments.php?patNum=${session.patNum}`,
           env,
         );
-        const { days, image_url: imageUrl } = res;
-        if (days.length === 0) {
+        const { days } = res;
+        if (!Array.isArray(days) || days.length === 0) {
           await replyToLine(
             event.replyToken,
             [bindSuccessCard, buildEmptyStateFlex(defaultImageUrl, env.CLINIC_PHONE)],
@@ -140,12 +194,12 @@ export async function handleVerify(
         } else {
           await replyToLine(
             event.replyToken,
-            [bindSuccessCard, buildNextAppointmentFlex({ days, imageUrl }, env.CLINIC_PHONE)],
+            [bindSuccessCard, buildNextAppointmentFlex(days, env.CLINIC_PHONE)],
             env,
           );
         }
       } catch {
-        // Appointments fetch failed — at least show bind success
+        // Appointments fetch failed — show bind success at minimum
         await replyToLine(event.replyToken, [bindSuccessCard], env);
       }
       return;
@@ -153,18 +207,24 @@ export async function handleVerify(
 
     if (/^(ไม่|no)/i.test(text)) {
       await clearSession(kv, userId);
-      await replyToLine(
-        event.replyToken,
-        [textMessage('กรุณาติดต่อคลินิกเพื่อยืนยันตัวตน')],
-        env,
-      );
+      await replyToLine(event.replyToken, [textMessage(STRINGS.NO_CONFIRM_REPLY)], env);
       return;
     }
 
-    // Other text — stay in state, remind
+    // Any other input — keep session alive, resend card with a reminder
     await replyToLine(
       event.replyToken,
-      [buildConfirmNameFlex(session.fname, session.lname, defaultImageUrl, env.CLINIC_PHONE)],
+      [
+        textMessage(STRINGS.S3_LOOP_REMINDER),
+        buildConfirmNameFlex(
+          session.fname,
+          session.lname,
+          formattedPhone,
+          maskedId,
+          ri.s3,
+          env.CLINIC_PHONE,
+        ),
+      ],
       env,
     );
   }

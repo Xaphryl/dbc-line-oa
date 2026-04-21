@@ -34,7 +34,8 @@ export async function replyToLine(
     if (res.ok) {
       console.log(`[reply] ok messages=${messages.length}`);
     } else {
-      console.log(`[reply] error status=${res.status}`);
+      const body = await res.text().catch(() => '(unreadable)');
+      console.log(`[reply] error status=${res.status} body=${body}`);
     }
   } catch {
     console.log('[reply] error status=network');

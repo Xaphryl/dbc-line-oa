@@ -1,9 +1,19 @@
 /**
  * Main next-appointment carousel builder — pure, no side effects.
+ *
+ * PHP normally handles:
+ *  - capping to MAX_DAYS (12) bubbles
+ *  - capping to 3 rows per day, appending an overflow hint row
+ * The builder also applies these caps as defense-in-depth, so it is
+ * safe to call directly in tests with raw appointment data.
  */
 
+const MAX_DAYS = 12;
+const MAX_ROWS_PER_DAY = 3;
+
 import type {
-  NextAppointmentPayload,
+  DayGroup,
+  AppointmentRow,
   FlexMessage,
   FlexBubble,
   FlexBox,
@@ -11,24 +21,33 @@ import type {
   FlexText,
 } from '../types';
 import { STRINGS } from '../constants';
-import { BRAND_COLOR, BUBBLE_SIZE, heroImage, contactButton } from './common';
-import { formatThaiDate, formatTime } from '../dateFormat';
-
-const MAX_BUBBLES = 12;
-const MAX_ROWS_PER_DAY = 3;
+import { BRAND_COLOR, BUBBLE_SIZE, heroImage, contactButton, bubbleStyles } from './common';
+import { formatThaiDate } from '../dateFormat';
 
 export function buildNextAppointmentFlex(
-  payload: NextAppointmentPayload,
+  days: DayGroup[],
   clinicPhone: string,
 ): FlexMessage {
-  const days = payload.days.slice(0, MAX_BUBBLES);
+  const bubbles: FlexBubble[] = days.slice(0, MAX_DAYS).map((day) => {
+    // Cap rows and append overflow hint if needed
+    const cappedAppts: AppointmentRow[] = day.appointments.length > MAX_ROWS_PER_DAY
+      ? [
+          ...day.appointments.slice(0, MAX_ROWS_PER_DAY),
+          {
+            aptNum: null,
+            time: null,
+            procDescript: `+${day.appointments.length - MAX_ROWS_PER_DAY} ${STRINGS.OVERFLOW_SUFFIX}`,
+            overflow: true,
+          },
+        ]
+      : day.appointments;
 
-  const bubbles: FlexBubble[] = days.map((day) => {
-    const appointments = day.appointments;
-    const visibleAppts = appointments.slice(0, MAX_ROWS_PER_DAY);
-    const overflowCount = appointments.length - MAX_ROWS_PER_DAY;
+    const apptRows: FlexComponent[] = cappedAppts.map((appt: AppointmentRow, idx: number) => {
+      // Overflow hint rows from PHP have time=null and overflow=true
+      const timeText = appt.time ?? ' ';
+      // Prefer ProcDescript; fall back to appointment Note; then em-dash placeholder
+      const procText = appt.procDescript?.trim() || appt.note?.trim() || '—';
 
-    const apptRows: FlexComponent[] = visibleAppts.map((appt, idx) => {
       const row: FlexBox = {
         type: 'box',
         layout: 'baseline',
@@ -37,44 +56,22 @@ export function buildNextAppointmentFlex(
         contents: [
           {
             type: 'text',
-            text: formatTime(new Date(appt.aptDateTime)),
-            weight: 'bold',
-            color: BRAND_COLOR,
+            text: timeText,
+            weight: appt.overflow ? 'regular' : 'bold',
+            color: appt.overflow ? '#888888' : BRAND_COLOR,
             flex: 2,
           } satisfies FlexText,
           {
             type: 'text',
-            text: appt.procDescript,
+            text: procText,
             flex: 5,
             wrap: true,
+            ...(appt.overflow ? { size: 'sm', color: '#888888' } : {}),
           } satisfies FlexText,
         ],
       };
       return row;
     });
-
-    if (overflowCount > 0) {
-      const overflowRow: FlexBox = {
-        type: 'box',
-        layout: 'baseline',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: ' ',
-            flex: 2,
-          } satisfies FlexText,
-          {
-            type: 'text',
-            text: `+${overflowCount} ${STRINGS.OVERFLOW_SUFFIX}`,
-            flex: 5,
-            size: 'sm',
-            color: '#888888',
-          } satisfies FlexText,
-        ],
-      };
-      apptRows.push(overflowRow);
-    }
 
     const body: FlexBox = {
       type: 'box',
@@ -111,9 +108,10 @@ export function buildNextAppointmentFlex(
     return {
       type: 'bubble',
       size: BUBBLE_SIZE,
-      hero: heroImage(payload.imageUrl),
+      ...(day.image_url ? { hero: heroImage(day.image_url) } : {}),
       body,
       footer,
+      styles: bubbleStyles(),
     };
   });
 

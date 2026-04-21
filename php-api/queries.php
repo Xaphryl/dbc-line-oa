@@ -64,9 +64,19 @@ function sql_resolve_patient(string $lineUserId): array
 /**
  * Returns [sql, params] for all future scheduled appointments for a patient.
  * Guardrails enforced IN SQL (Plan §3.1–§3.3):
- *   - AptDateTime > NOW()
+ *   - AptDateTime > NOW() + INTERVAL 7 HOUR  (Thai time — appointments stored as UTC+7)
  *   - AptStatus = 1
+ *   - e_type IS NULL OR e_type != 'Deleted'  (soft-delete flag used by FD7 / nsync)
  *   - provider.Abbr NOT IN ('CEO', 'ตาราง')
+ *
+ * Timezone note: Hostinger MySQL runs at UTC. FD7 stores AptDateTime in Thai local time
+ * (Asia/Bangkok, UTC+7) without timezone info. Shifting NOW() by +7h gives the correct
+ * Thai "current time" for comparison against the stored values.
+ *
+ * Soft-delete note: FD7 marks cancelled/removed appointments with e_type = 'Deleted'
+ * while leaving AptStatus = 1 unchanged. The AptStatus filter alone is insufficient.
+ * All nsync queries (appointments/list.php, patients/detail.php, patients/list.php) use
+ * this same guard — we must match them (ref: LINE OA autoreply thread in nsync project).
  */
 function sql_next_appointments(int $patNum): array
 {
@@ -75,13 +85,15 @@ function sql_next_appointments(int $patNum): array
           a.AptNum,
           a.AptDateTime,
           a.ProcDescript,
+          a.Note,
           pr.Abbr AS provider_abbr
         FROM appointment a
         JOIN provider pr ON a.ProvNum = pr.ProvNum
         JOIN patient p ON a.PatNum = p.PatNum
         WHERE p.PatNum = :patNum
-          AND a.AptDateTime > NOW()
+          AND a.AptDateTime > NOW() + INTERVAL 7 HOUR
           AND a.AptStatus = 1
+          AND (a.e_type IS NULL OR a.e_type != 'Deleted')
           AND pr.Abbr NOT IN ('CEO', 'ตาราง')
         ORDER BY a.AptDateTime ASC
     ";
@@ -138,17 +150,34 @@ function sql_image_rule_treatment(array $procDescs): array
 
 function sql_image_rule_seasonal(string $dateMMDD): array
 {
+    // Two cases handled:
+    //   Normal period  (season_start <= season_end): e.g. 0401–0420 → Apr 1–Apr 20
+    //   Year-spanning  (season_start >  season_end): e.g. 1225–0105 → Dec 25–Jan 5
+    // Both rely on the same :mmdd parameter (bound twice under different names).
     $sql = "
         SELECT filename
         FROM line_card_image
         WHERE rule_type = 'seasonal'
           AND active = 1
-          AND season_start <= :mmdd
-          AND season_end   >= :mmdd2
+          AND (
+              -- Normal period: start ≤ today ≤ end (within same calendar year)
+              (season_start <= season_end
+               AND season_start <= :mmdd1
+               AND season_end   >= :mmdd2)
+              OR
+              -- Year-spanning: today is after start OR before end
+              (season_start > season_end
+               AND (:mmdd3 >= season_start OR :mmdd4 <= season_end))
+          )
         ORDER BY priority ASC
         LIMIT 1
     ";
-    return [$sql, [':mmdd' => $dateMMDD, ':mmdd2' => $dateMMDD]];
+    return [$sql, [
+        ':mmdd1' => $dateMMDD,
+        ':mmdd2' => $dateMMDD,
+        ':mmdd3' => $dateMMDD,
+        ':mmdd4' => $dateMMDD,
+    ]];
 }
 
 function sql_image_rule_default(): array
@@ -235,6 +264,8 @@ function sql_get_patient_line_binding(int $patNum): array
 
 /**
  * Returns [sql, params] to write line_user_id — only call after idempotency check.
+ * Overwrites any existing binding (safe because the patient proved identity via
+ * phone + national-ID verification before this step is reached).
  */
 function sql_bind_line_user(int $patNum, string $lineUserId): array
 {
@@ -242,9 +273,23 @@ function sql_bind_line_user(int $patNum, string $lineUserId): array
         UPDATE patient
         SET line_user_id = :line_user_id
         WHERE PatNum = :patNum
-          AND (line_user_id = '' OR line_user_id IS NULL)
     ";
     return [$sql, [':line_user_id' => $lineUserId, ':patNum' => $patNum]];
+}
+
+/**
+ * Returns [sql, params] to clear the line_user_id for a given LINE user ID.
+ * Used by unbind-patient.php before re-registration.
+ * Idempotent — 0 rows updated is not an error.
+ */
+function sql_unbind_patient(string $lineUserId): array
+{
+    $sql = "
+        UPDATE patient
+        SET line_user_id = ''
+        WHERE line_user_id = :line_user_id
+    ";
+    return [$sql, [':line_user_id' => $lineUserId]];
 }
 
 // ---------------------------------------------------------------------------

@@ -4,12 +4,10 @@ import { buildVerifyPromptFlex } from '../src/flex/verifyPrompt';
 import { buildConfirmNameFlex } from '../src/flex/confirmName';
 import { buildEmptyStateFlex } from '../src/flex/emptyState';
 import type {
-  NextAppointmentPayload,
+  DayGroup,
   FlexCarousel,
   FlexBubble,
   FlexBox,
-  FlexButton,
-  FlexText,
   FlexURIAction,
   FlexMessageAction,
 } from '../src/types';
@@ -18,10 +16,10 @@ import { STRINGS } from '../src/constants';
 const IMAGE_URL = 'https://dentalbuddyclinic.com/line-oa/images/test.jpg';
 const PHONE = '038-001-0001';
 
-// Helper to build appointment rows
-const appt = (dateStr: string, time: string, proc: string, n: number) => ({
+// Helper to build DayGroup appointment rows (PHP shape: time + procDescript)
+const appt = (time: string, proc: string, n: number) => ({
   aptNum: n,
-  aptDateTime: `${dateStr}T${time}:00`,
+  time,
   procDescript: proc,
 });
 
@@ -43,11 +41,10 @@ function allBodyTexts(bubble: FlexBubble): string[] {
 
 describe('buildNextAppointmentFlex', () => {
   it('single day, 1 appointment → carousel with 1 bubble', () => {
-    const payload: NextAppointmentPayload = {
-      days: [{ date: '2026-04-25', appointments: [appt('2026-04-25', '14:30', 'Cleaning', 1)] }],
-      imageUrl: IMAGE_URL,
-    };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const days: DayGroup[] = [
+      { date: '2026-04-25', appointments: [appt('14:30', 'Cleaning', 1)], image_url: IMAGE_URL },
+    ];
+    const msg = buildNextAppointmentFlex(days, PHONE);
     expect(msg.type).toBe('flex');
     const carousel = msg.contents as FlexCarousel;
     expect(carousel.type).toBe('carousel');
@@ -62,40 +59,33 @@ describe('buildNextAppointmentFlex', () => {
   });
 
   it('single day, 2 appointments → 1 bubble with 2 time rows', () => {
-    const payload: NextAppointmentPayload = {
-      days: [
-        {
-          date: '2026-04-25',
-          appointments: [
-            appt('2026-04-25', '09:00', 'Checkup', 1),
-            appt('2026-04-25', '10:00', 'X-Ray', 2),
-          ],
-        },
-      ],
-      imageUrl: IMAGE_URL,
-    };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const days: DayGroup[] = [
+      {
+        date: '2026-04-25',
+        appointments: [appt('09:00', 'Checkup', 1), appt('10:00', 'X-Ray', 2)],
+        image_url: IMAGE_URL,
+      },
+    ];
+    const msg = buildNextAppointmentFlex(days, PHONE);
     const carousel = msg.contents as FlexCarousel;
     const texts = allBodyTexts(carousel.contents[0]!);
     expect(texts.filter((t) => /^\d{2}:\d{2}$/.test(t))).toHaveLength(2);
   });
 
   it('single day, 4 appointments → 3 time rows + overflow row with "+1"', () => {
-    const payload: NextAppointmentPayload = {
-      days: [
-        {
-          date: '2026-04-25',
-          appointments: [
-            appt('2026-04-25', '09:00', 'Checkup', 1),
-            appt('2026-04-25', '10:00', 'X-Ray', 2),
-            appt('2026-04-25', '11:00', 'Filling', 3),
-            appt('2026-04-25', '13:00', 'Crown', 4),
-          ],
-        },
-      ],
-      imageUrl: IMAGE_URL,
-    };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const days: DayGroup[] = [
+      {
+        date: '2026-04-25',
+        appointments: [
+          appt('09:00', 'Checkup', 1),
+          appt('10:00', 'X-Ray', 2),
+          appt('11:00', 'Filling', 3),
+          appt('13:00', 'Crown', 4),
+        ],
+        image_url: IMAGE_URL,
+      },
+    ];
+    const msg = buildNextAppointmentFlex(days, PHONE);
     const carousel = msg.contents as FlexCarousel;
     const texts = allBodyTexts(carousel.contents[0]!);
     expect(texts.filter((t) => /^\d{2}:\d{2}$/.test(t))).toHaveLength(3);
@@ -103,38 +93,35 @@ describe('buildNextAppointmentFlex', () => {
   });
 
   it('two different days → carousel with 2 bubbles', () => {
-    const payload: NextAppointmentPayload = {
-      days: [
-        { date: '2026-04-25', appointments: [appt('2026-04-25', '09:00', 'Checkup', 1)] },
-        { date: '2026-05-02', appointments: [appt('2026-05-02', '10:00', 'Filling', 2)] },
-      ],
-      imageUrl: IMAGE_URL,
-    };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const days: DayGroup[] = [
+      { date: '2026-04-25', appointments: [appt('09:00', 'Checkup', 1)], image_url: IMAGE_URL },
+      { date: '2026-05-02', appointments: [appt('10:00', 'Filling', 2)], image_url: IMAGE_URL },
+    ];
+    const msg = buildNextAppointmentFlex(days, PHONE);
     const carousel = msg.contents as FlexCarousel;
     expect(carousel.contents).toHaveLength(2);
   });
 
   it('caps at 12 bubbles when 13 days are supplied', () => {
-    const days = Array.from({ length: 13 }, (_, i) => ({
+    const days: DayGroup[] = Array.from({ length: 13 }, (_, i) => ({
       date: `2026-05-${String(i + 1).padStart(2, '0')}`,
-      appointments: [appt(`2026-05-${String(i + 1).padStart(2, '0')}`, '09:00', 'Checkup', i + 1)],
+      appointments: [appt('09:00', 'Checkup', i + 1)],
+      image_url: IMAGE_URL,
     }));
-    const payload: NextAppointmentPayload = { days, imageUrl: IMAGE_URL };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const msg = buildNextAppointmentFlex(days, PHONE);
     const carousel = msg.contents as FlexCarousel;
     expect(carousel.contents).toHaveLength(12);
   });
 
   it('footer contact button URI starts with tel:', () => {
-    const payload: NextAppointmentPayload = {
-      days: [{ date: '2026-04-25', appointments: [appt('2026-04-25', '09:00', 'Checkup', 1)] }],
-      imageUrl: IMAGE_URL,
-    };
-    const msg = buildNextAppointmentFlex(payload, PHONE);
+    const days: DayGroup[] = [
+      { date: '2026-04-25', appointments: [appt('09:00', 'Checkup', 1)], image_url: IMAGE_URL },
+    ];
+    const msg = buildNextAppointmentFlex(days, PHONE);
     const carousel = msg.contents as FlexCarousel;
     const bubble = carousel.contents[0]!;
-    const footerBtn = bubble.footer!.contents[0] as FlexButton;
+    // contactButton is a tappable FlexBox (not a FlexButton element)
+    const footerBtn = bubble.footer!.contents[0] as FlexBox;
     expect((footerBtn.action as FlexURIAction).uri).toMatch(/^tel:/);
   });
 });
@@ -163,26 +150,29 @@ describe('buildVerifyPromptFlex', () => {
 // ── confirmName ──────────────────────────────────────────────────────────────
 
 describe('buildConfirmNameFlex', () => {
-  it('footer has 2 buttons', () => {
-    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', IMAGE_URL, PHONE);
+  // Footer uses tappable FlexBox items (not FlexButton) for full colour control.
+  it('footer has 2 tappable box items', () => {
+    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', '081-234-5678', '1-2345-XXXXX-12-3', IMAGE_URL, PHONE);
     const bubble = msg.contents as FlexBubble;
     const footerContents = bubble.footer!.contents;
-    const buttons = footerContents.filter((c) => (c as FlexButton).type === 'button');
-    expect(buttons).toHaveLength(2);
+    // Each tappable box is a FlexBox with action — type === 'box'
+    const boxes = footerContents.filter((c) => (c as FlexBox).type === 'box');
+    expect(boxes).toHaveLength(2);
   });
 
-  it('first button action text is ใช่', () => {
-    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', IMAGE_URL, PHONE);
+  it('first tappable box action text is ใช่', () => {
+    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', '081-234-5678', '1-2345-XXXXX-12-3', IMAGE_URL, PHONE);
     const bubble = msg.contents as FlexBubble;
-    const firstBtn = bubble.footer!.contents[0] as FlexButton;
-    expect((firstBtn.action as FlexMessageAction).text).toBe('ใช่');
+    const firstBox = bubble.footer!.contents[0] as FlexBox;
+    expect((firstBox.action as FlexMessageAction).text).toBe('ใช่');
   });
 
   it('body text includes fname and lname', () => {
-    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', IMAGE_URL, PHONE);
+    const msg = buildConfirmNameFlex('สมใจ', 'ใจดี', '081-234-5678', '1-2345-XXXXX-12-3', IMAGE_URL, PHONE);
     const bubble = msg.contents as FlexBubble;
     const texts = allBodyTexts(bubble);
-    expect(texts.some((t) => t.includes('สมใจ') && t.includes('ใจดี'))).toBe(true);
+    expect(texts.some((t) => t.includes('สมใจ'))).toBe(true);
+    expect(texts.some((t) => t.includes('ใจดี'))).toBe(true);
   });
 });
 

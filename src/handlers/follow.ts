@@ -26,17 +26,22 @@ export async function handleFollow(event: LineWebhookEvent, env: Env): Promise<v
     console.log('[follow] users-upsert error:', err instanceof Error ? err.message : 'unknown');
   }
 
-  // Telegram notification
+  // Telegram notification — photo + caption in one message when picture is available
   const escapedName = escapeMarkdownV2(profile.displayName);
-  const escapedId = escapeMarkdownV2(userId);
-  const msg =
+  const escapedId   = escapeMarkdownV2(userId);
+  const caption =
     `📢 *มีเพื่อนใหม่แอดไลน์ OA\\!*\n\n` +
     `👤 *ชื่อ:* ${escapedName}\n` +
     `🆔 *User ID:* \`${escapedId}\``;
-  await sendTelegramMessage(msg, env);
+
+  console.log(`[follow] pictureUrl=${profile.pictureUrl ?? 'none'}`);
 
   if (profile.pictureUrl) {
-    await sendTelegramPhoto(profile.pictureUrl, env);
+    // Send photo with the caption embedded — one Telegram message instead of two
+    await sendTelegramPhoto(profile.pictureUrl, env, caption);
+  } else {
+    // No profile picture — fall back to text-only
+    await sendTelegramMessage(caption, env);
   }
 
   // Reply to LINE

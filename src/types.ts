@@ -51,19 +51,17 @@ export interface LineWebhookBody {
 // ── Flex builder DTOs ──────────────────────────────────────────────────────
 
 export interface AppointmentRow {
-  aptNum: number;
-  aptDateTime: string;  // ISO 8601 string, e.g. "2026-04-25T14:30:00"
+  aptNum: number | null;
+  time: string | null;     // "HH:MM" from PHP; null for overflow hint rows
   procDescript: string;
+  note?: string;           // OpenDental appointment Note field; shown when ProcDescript is empty
+  overflow?: boolean;
 }
 
 export interface DayGroup {
   date: string;           // YYYY-MM-DD, e.g. "2026-04-25"
   appointments: AppointmentRow[];
-}
-
-export interface NextAppointmentPayload {
-  days: DayGroup[];
-  imageUrl: string;       // fully-resolved HTTPS URL, e.g. "https://dentalbuddyclinic.com/line-oa/images/songkran.jpg"
+  image_url: string;      // per-day hero image URL resolved by PHP image-rule engine
 }
 
 // Generic LINE Flex container types (minimal — extend as needed)
@@ -78,12 +76,20 @@ export interface FlexCarousel {
   contents: FlexBubble[];
 }
 
+export interface FlexBubbleStyles {
+  header?: { backgroundColor?: string; separator?: boolean };
+  hero?:   { separator?: boolean };
+  body?:   { backgroundColor?: string; separator?: boolean };
+  footer?: { backgroundColor?: string; separator?: boolean };
+}
+
 export interface FlexBubble {
   type: 'bubble';
   size: 'kilo' | 'micro' | 'nano' | 'deca' | 'mega' | 'giga';
   hero?: FlexImage;
   body?: FlexBox;
   footer?: FlexBox;
+  styles?: FlexBubbleStyles;
 }
 
 export interface FlexImage {
@@ -99,6 +105,15 @@ export interface FlexBox {
   layout: 'vertical' | 'horizontal' | 'baseline';
   spacing?: string;
   margin?: string;
+  flex?: number;
+  backgroundColor?: string;
+  cornerRadius?: string;
+  paddingAll?: string;
+  paddingTop?: string;
+  paddingBottom?: string;
+  paddingStart?: string;
+  paddingEnd?: string;
+  action?: FlexURIAction | FlexMessageAction;
   contents: FlexComponent[];
 }
 
@@ -112,6 +127,7 @@ export interface FlexText {
   color?: string;
   wrap?: boolean;
   flex?: number;
+  align?: 'start' | 'center' | 'end';
 }
 
 export interface FlexSeparator {
@@ -160,8 +176,7 @@ export interface ResolvePatientResponse {
 }
 
 export interface NextAppointmentsResponse {
-  days: DayGroup[];
-  image_url: string;   // snake_case — PHP convention; map to imageUrl in handler
+  days: DayGroup[];   // image_url now lives on each DayGroup, not at the top level
 }
 
 export interface ResolveByPhoneResponse {
@@ -176,7 +191,27 @@ export interface VerifyAndBindResponse {
 
 // ── Session state ──────────────────────────────────────────────────────────
 
+/**
+ * Resolved hero image URLs for the three registration steps.
+ * Fetched once from /reg-images.php at registration start and stored in every
+ * session variant so each step can use the correct image without a second
+ * network call.
+ */
+export interface RegImages {
+  s1: string;
+  s2: string;
+  s3: string;
+}
+
 export type SessionState =
-  | { step: 'awaiting_phone' }
-  | { step: 'awaiting_national_id'; candidates: number[] }
-  | { step: 'awaiting_name_confirm'; patNum: number; fname: string; lname: string };
+  | { step: 'awaiting_phone'; ri: RegImages }
+  | { step: 'awaiting_national_id'; candidates: number[]; phone: string; ri: RegImages }
+  | { step: 'awaiting_name_confirm'; patNum: number; fname: string; lname: string; phone: string; nationalId: string; ri: RegImages };
+
+// ── PHP API response shapes (registration) ─────────────────────────────────
+
+export interface RegImagesResponse {
+  s1_url: string;
+  s2_url: string;
+  s3_url: string;
+}

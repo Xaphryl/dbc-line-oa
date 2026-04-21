@@ -4,7 +4,7 @@
 
 import type { FlexMessage, FlexBox } from '../types';
 import { STRINGS } from '../constants';
-import { BRAND_COLOR, BUBBLE_SIZE, heroImage, contactButton } from './common';
+import { BRAND_COLOR, BUBBLE_SIZE, heroImage, contactButton, bubbleStyles } from './common';
 
 export function buildEmptyStateFlex(defaultImageUrl: string, clinicPhone: string): FlexMessage {
   const body: FlexBox = {
@@ -38,9 +38,10 @@ export function buildEmptyStateFlex(defaultImageUrl: string, clinicPhone: string
     contents: {
       type: 'bubble',
       size: BUBBLE_SIZE,
-      hero: heroImage(defaultImageUrl),
+      ...(defaultImageUrl ? { hero: heroImage(defaultImageUrl) } : {}),
       body,
       footer,
+      styles: bubbleStyles(),
     },
   };
 }

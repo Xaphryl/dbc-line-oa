@@ -1,6 +1,7 @@
 /**
- * Handler for the "user"/"User" keyword.
- * Clears any existing session and replies with the user's LINE user ID.
+ * Handler for the "id" keyword.
+ * Clears any existing session and replies with the user's LINE user ID
+ * + instructions for staff-assisted linking.
  */
 
 import type { LineMessageEvent, Env } from '../types';
@@ -14,7 +15,8 @@ export async function handleUserKeyword(
 ): Promise<void> {
   const userId = event.source.userId ?? 'unknown';
   await clearSession(env.LINE_OA_KV, userId);
-  const replyText = `${STRINGS.USER_KEYWORD_REPLY_PREFIX}${userId}${STRINGS.USER_KEYWORD_REPLY_SUFFIX}`;
+  const replyText =
+    `${STRINGS.USER_KEYWORD_REPLY_PREFIX}${userId}${STRINGS.USER_KEYWORD_REPLY_SUFFIX}`;
   await replyToLine(event.replyToken, [textMessage(replyText)], env);
   console.log('[userKeyword] sent LINE user ID to user');
 }
