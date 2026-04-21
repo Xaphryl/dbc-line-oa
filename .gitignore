@@ -1,8 +1,18 @@
 node_modules/
 .wrangler/
-.dev.vars
 dist/
 *.log
-php-support/.env
-php-api/.env
+
+# ── Secrets — never commit ────────────────────────────────────────────────────
+# Wrangler local dev secrets (.dev.vars is the Cloudflare convention)
+.dev.vars
+
+# PHP .env files at any depth — .env.example files ARE committed (no secrets)
+**/.env
+**/.env.local
+**/.env.production
+**/.env.*.local
+
+# Root-level catch-all (belt-and-suspenders)
 .env
+
