@@ -78,7 +78,7 @@ export function buildConfirmNameFlex(
           } satisfies FlexText,
           {
             type: 'text',
-            text: `${fname} ${lname}`,
+            text: `${fname.replace(/\s*\([^)]*\)/g, '').trim()} ${lname}`,
             size: 'sm',
             weight: 'bold',
             wrap: true,

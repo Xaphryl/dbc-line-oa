@@ -68,12 +68,20 @@ export function buildAskNationalIDFlex(
         size: 'lg',
       } satisfies FlexText,
       { type: 'separator' } satisfies FlexSeparator,
-      // Instruction + hints
+      // Instruction
       {
         type: 'text',
         text: STRINGS.ASK_NATIONAL_ID_BODY,
         wrap: true,
         size: 'sm',
+      } satisfies FlexText,
+      // Cancel hint — same PDPA style as S1
+      {
+        type: 'text',
+        text: STRINGS.ASK_NATIONAL_ID_CANCEL_HINT,
+        wrap: true,
+        size: 'xxs',
+        color: '#888888',
       } satisfies FlexText,
     ],
   };

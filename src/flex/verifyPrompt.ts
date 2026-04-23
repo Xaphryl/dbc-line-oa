@@ -57,15 +57,6 @@ export function buildVerifyPromptFlex(imageUrl: string, clinicPhone: string): Fl
         size: 'xxs',
         color: '#888888',
       } satisfies FlexText,
-      { type: 'separator' } satisfies FlexSeparator,
-      // Hints
-      {
-        type: 'text',
-        text: STRINGS.VERIFY_HINTS,
-        wrap: true,
-        size: 'xxs',
-        color: '#888888',
-      } satisfies FlexText,
     ],
   };
 

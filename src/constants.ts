@@ -24,7 +24,7 @@ export const STRINGS = {
   CONTACT_CLINIC:   'ติดต่อคลินิก',
 
   // ── Empty state ────────────────────────────────────────────────────────────
-  EMPTY_STATE_BODY: 'ยังไม่มีนัดในระบบ\nติดต่อคลินิกเพื่อทำนัดใหม่',
+  EMPTY_STATE_BODY: 'ยังไม่มีนัดในระบบ 🗓️🧐\nกรุณาติดต่อคลินิกเพื่อทำนัดใหม่ค่ะ',
 
   // ── Registration S1 — phone entry ──────────────────────────────────────────
   VERIFY_HEADING: 'ยืนยันตัวตน',
@@ -34,13 +34,14 @@ export const STRINGS = {
   VERIFY_HINTS:   'พิมพ์ "ยกเลิก" เพื่อยกเลิกการลงทะเบียน\nหรือ "id" เพื่อรับรหัสเพื่อแจ้งทางคลินิก',
 
   // ── Registration S1 — phone not found ─────────────────────────────────────
-  PHONE_NOT_FOUND: 'ไม่พบเบอร์โทรศัพท์ในระบบ กรุณาลองอีกครั้ง\nหรือพิมพ์ "ยกเลิก" เพื่อยกเลิก',
+  PHONE_NOT_FOUND: 'ไม่พบเบอร์โทรศัพท์ในระบบ ❌\nกรุณาลองอีกครั้ง\nหรือ พิมพ์ "ยกเลิก" เพื่อยกเลิกการลงทะเบียน',
 
   // ── Registration S2 — national ID entry ───────────────────────────────────
   ASK_NATIONAL_ID_HEADING:     'ยืนยันตัวตน',
   ASK_NATIONAL_ID_STEP:        'ขั้นตอน 2 จาก 3',
   ASK_NATIONAL_ID_PHONE_LABEL: 'เบอร์โทรที่ระบุ',
-  ASK_NATIONAL_ID_BODY:        'กรุณาพิมพ์เลขบัตรประชาชน 13 หลัก\nพิมพ์ "ยกเลิก" เพื่อยกเลิก',
+  ASK_NATIONAL_ID_BODY:        'กรุณาพิมพ์เลขบัตรประชาชน 13 หลัก',
+  ASK_NATIONAL_ID_CANCEL_HINT: 'หรือพิมพ์ "ยกเลิก" เพื่อยกเลิกการลงทะเบียน',
   BACK_BUTTON_LABEL:           'ย้อนกลับ',
 
   // ── Registration S2 — national ID mismatch ────────────────────────────────
