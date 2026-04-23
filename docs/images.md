@@ -24,6 +24,7 @@ Upload them to the images folder and they appear automatically — no code chang
 | `registration_1_phone` | **S1** — phone entry | Unbound user taps นัดครั้งต่อไป, or any user types ลงทะเบียน |
 | `registration_2_id` | **S2** — national ID entry | After phone is matched to ≥1 candidate patient |
 | `registration_3_people` | **S3** — name confirmation | After national ID is matched; patient confirms identity |
+| `registration_4_complete` | **S4** — registration complete / bind success | Shown immediately after patient taps "ใช่" and binding is saved |
 | `no_appointment` | **Empty state** — no upcoming appointments | Bound patient has no future scheduled appointments |
 
 ### Supported file extensions
@@ -100,8 +101,9 @@ Lower `priority` number = higher priority (e.g. 10 beats 50).
 | `registration_1_phone.jpg` (or .png) | S1 phone entry hero | Upload to Hostinger |
 | `registration_2_id.jpg` (or .png) | S2 national ID entry hero | Upload to Hostinger |
 | `registration_3_people.jpg` (or .png) | S3 name confirmation hero | Upload to Hostinger |
+| `registration_4_complete.jpg` (or .png) | Registration-complete / bind-success hero | Upload to Hostinger |
 | `no_appointment.jpg` (or .png) | Empty-state card hero | Upload to Hostinger |
-| `default.jpg` | Appointment card fallback + bind-success hero | Must always exist |
+| `default.jpg` | Appointment card fallback | Must always exist |
 | `songkran.jpg` | Songkran seasonal card hero (Apr 1–20) | Upload to Hostinger |
 | *(any filename)* | Custom treatment / seasonal rule image | Upload + insert DB row |
 

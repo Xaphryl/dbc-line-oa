@@ -51,7 +51,6 @@ export async function handleVerify(
 
   // Pull resolved image URLs from session; ri is always present on all session variants
   const ri: RegImages = session.ri;
-  const defaultImageUrl = `${env.IMAGE_BASE_URL.replace(/\/$/, '')}/default.jpg`;
 
   // ── awaiting_phone ────────────────────────────────────────────────────────
   if (session.step === 'awaiting_phone') {
@@ -178,7 +177,7 @@ export async function handleVerify(
       await clearSession(kv, userId);
 
       // Chain: bind success + appointments
-      const bindSuccessCard = buildBindSuccessFlex(defaultImageUrl, env.CLINIC_PHONE);
+      const bindSuccessCard = buildBindSuccessFlex(ri.complete, env.CLINIC_PHONE);
       try {
         const res = await phpGet<NextAppointmentsResponse>(
           `/next-appointments.php?patNum=${session.patNum}`,

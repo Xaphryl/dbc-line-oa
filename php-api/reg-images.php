@@ -19,8 +19,9 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'], true)) {
 }
 
 jsonResponse([
-    's1_url'     => resolveStepImage('registration_1_phone'),
-    's2_url'     => resolveStepImage('registration_2_id'),
-    's3_url'     => resolveStepImage('registration_3_people'),
-    'no_apt_url' => resolveStepImage('no_appointment'),
+    's1_url'       => resolveStepImage('registration_1_phone'),
+    's2_url'       => resolveStepImage('registration_2_id'),
+    's3_url'       => resolveStepImage('registration_3_people'),
+    'no_apt_url'   => resolveStepImage('no_appointment'),
+    'complete_url' => resolveStepImage('registration_4_complete'),
 ]);

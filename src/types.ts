@@ -205,6 +205,8 @@ export interface RegImages {
   s3: string;
   /** Hero image for the "no upcoming appointments" empty-state card. */
   no_apt: string;
+  /** Hero image for the bind-success / registration-complete card. */
+  complete: string;
 }
 
 export type SessionState =
@@ -219,4 +221,5 @@ export interface RegImagesResponse {
   s2_url: string;
   s3_url: string;
   no_apt_url: string;
+  complete_url: string;
 }
