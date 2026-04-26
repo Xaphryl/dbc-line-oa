@@ -2,7 +2,7 @@
 // Returns resolved HTTPS URLs for the three registration step hero images.
 // GET (no params required) → 200 { s1_url, s2_url, s3_url }
 //
-// Tries .jpg → .jpeg → .png for each basename; falls back to default.jpg.
+// Tries .jpg → .jpeg → .png for each basename; falls back to default (any extension).
 // This lets the clinic upload images in any supported format without
 // changing Worker code.
 
